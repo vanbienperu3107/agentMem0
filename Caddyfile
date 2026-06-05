@@ -1,0 +1,20 @@
+claude.hangocthanh.io.vn {
+    encode gzip
+
+    # mem0 vector layer — Caddy verifies MCP_BEARER_TOKEN, swaps for real Qdrant key
+    handle /qdrant/* {
+        @authorized header api-key "{env.MCP_BEARER_TOKEN}"
+        handle @authorized {
+            uri strip_prefix /qdrant
+            reverse_proxy qdrant:6333 {
+                header_up api-key {env.QDRANT_API_KEY}
+            }
+        }
+        respond "Unauthorized" 401
+    }
+
+    # REST API — used by archive-upload.py and ChatGPT Custom GPT Actions
+    # FastAPI handles auth via Authorization header
+    handle /archive/* {
+        uri strip_prefix /archive
+        rev

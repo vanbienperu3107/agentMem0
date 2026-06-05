@@ -1,0 +1,27 @@
+{
+  "_doc": [
+    "Cấu hình đẩy session JSON + summary lên memory server.",
+    "Endpoints theo plan-trien-khai-memory-server-mac-windows.md:",
+    "  POST {archive_url}/sessions          -> upload session JSON sau lệnh compact",
+    "  POST {archive_url}/compact-summaries -> upload summary text sau lệnh /sum",
+    "Auth header: 'Authorization: Bearer {auth_token}'.",
+    "auth_token hỗ trợ dạng ${env:NAME} để đọc từ biến môi trường (tránh commit secret).",
+    "Toàn bộ chạy ASYNC (không block UI). Nếu app crash giữa chừng,",
+    "marker file pending_*.json trong sessions/pending/ sẽ được retry ở lần khởi động sau."
+  ],
+
+  "enabled": false,
+
+  "archive_url": "https://claude.hangocthanh.io.vn/archive",
+  "auth_token": "${env:ARCHIVE_AUTH_TOKEN}",
+
+  "user_id": "thanh",
+  "project_tag": "chatgpt-desktop",
+
+  "upload_session_on_compact": true,
+  "upload_summary_on_sum": true,
+
+  "timeout_seconds": 30,
+  "retry_max": 3,
+  "retry_backoff_seconds": 5
+}

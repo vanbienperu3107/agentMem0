@@ -1,0 +1,16 @@
+{
+  "compact": "compact_session",
+  "/compact": "compact_session",
+  "lưu": "compact_session",
+  "/lưu": "compact_session",
+  "luu": "compact_session",
+  "save": "compact_session",
+  "xuat": "compact_session",
+  "/c": "compact_session",
+  "/save": "compact_session",
+  "/sum": "summarize_current",
+  "/summary": "summarize_current",
+  "tóm tắt": "summarize_current",
+  "/tóm tắt": "summarize_current",
+  "tomtat": "summarize_current"
+}

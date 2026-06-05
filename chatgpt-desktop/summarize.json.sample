@@ -1,0 +1,59 @@
+{
+  "enabled": true,
+  "auto_on_compact": false,
+  "active_provider": "claude_max",
+  "output": {
+    "save_to_session_json": true,
+    "save_separate_file": false
+  },
+  "providers": {
+    "claude_max": {
+      "type": "claude_oat",
+      "credentials_path": "~/.claude/.credentials.json",
+      "model": "claude-haiku-4-5-20251001",
+      "max_tokens": 1024,
+      "system_prompt": "Tóm tắt phiên chat sau bằng tiếng Việt theo format:\n\n## Chủ đề\n## Điểm chính\n## Action items (nếu có)\n## Quyết định (nếu có)\n\nNgắn gọn, súc tích."
+    },
+    "anthropic_api": {
+      "type": "anthropic",
+      "endpoint": "https://api.anthropic.com/v1/messages",
+      "api_key": "${env:ANTHROPIC_API_KEY}",
+      "model": "claude-sonnet-4-6",
+      "max_tokens": 2048,
+      "system_prompt": "Tóm tắt tỉ mỉ bằng tiếng Việt, format markdown."
+    },
+    "openai_4o": {
+      "type": "openai",
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "api_key": "${env:OPENAI_API_KEY}",
+      "model": "gpt-4o",
+      "max_tokens": 1024,
+      "temperature": 0.3,
+      "system_prompt": "Bạn là chuyên gia tóm tắt. Đầu ra ngắn gọn tiếng Việt."
+    },
+    "ollama_local": {
+      "type": "openai",
+      "endpoint": "http://localhost:11434/v1/chat/completions",
+      "api_key": "ollama",
+      "model": "llama3.1:8b",
+      "max_tokens": 2048,
+      "system_prompt": "Tóm tắt tiếng Việt."
+    },
+    "groq_fast": {
+      "type": "openai",
+      "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+      "api_key": "${env:GROQ_API_KEY}",
+      "model": "llama-3.3-70b-versatile",
+      "max_tokens": 2048,
+      "system_prompt": "Tóm tắt nhanh tiếng Việt."
+    },
+    "deepseek": {
+      "type": "openai",
+      "endpoint": "https://api.deepseek.com/v1/chat/completions",
+      "api_key": "${env:DEEPSEEK_API_KEY}",
+      "model": "deepseek-chat",
+      "max_tokens": 2048,
+      "system_prompt": "Tóm tắt ngắn gọn tiếng Việt."
+    }
+  }
+}

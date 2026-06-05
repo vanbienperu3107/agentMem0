@@ -1,0 +1,70 @@
+name: Deploy to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (all = full stack)'
+        required: true
+        type: choice
+        options:
+          - all
+          - mcp-http-server
+          - archive-api
+          - memory-rest-api
+        default: 'mcp-http-server'
+
+  # Auto-deploy on push to test branch (optional — comment out if undesired)
+  # push:
+  #   branches: [test]
+  #   paths:
+  #     - 'archive-api/**'
+  #     - 'mcp-http-server/**'
+  #     - 'memory-rest-api/**'
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.inputs.service }} to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then echo "❌ VPS_HOST not set"; exit 1; fi
+          if [ -z "${{ secrets.VPS_USER }}" ]; then echo "❌ VPS_USER not set"; exit 1; fi
+          if [ -z "${{ secrets.VPS_PORT }}" ]; then echo "❌ VPS_PORT not set"; exit 1; fi
+          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then echo "❌ VPS_SSH_KEY not set"; exit 1; fi
+          echo "✅ All secrets configured"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            echo "=== Connected to VPS ==="
+            ~/scripts/deploy.sh ${{ github.event.inputs.service || 'mcp-http-server' }}
+
+      - name: Smoke test after deploy
+        run: |
+          set -e
+          echo "Wait 5s for service to settle..."
+          sleep 5
+          code=$(curl -s -o /dev/null -w "%{http_code}" https://claude.hangocthanh.io.vn/health)
+          echo "/health → HTTP $code"
+          test "$code" = "200"
+          echo "✅ Service alive after deploy"
+
+      - name: OAuth discovery smoke test (only for mcp-http-server)
+        if: github.event.inputs.service == 'mcp-http-server' || github.event.inputs.service == 'all'
+        run: |
+          set -e
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://claude.hangocthanh.io.vn/mcp/.well-known/oauth-authorization-server)
+          echo "OAuth discovery → HTTP $code"
+          test "$code" = "200"
+          echo "✅ OAuth endpoint live"

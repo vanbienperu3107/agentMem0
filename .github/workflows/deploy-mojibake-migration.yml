@@ -1,0 +1,143 @@
+name: Deploy Mojibake Migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/migrate-fix-mojibake.py'
+      - '.github/workflows/deploy-mojibake-migration.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        type: choice
+        options: [dry-run, execute]
+        default: dry-run
+      limit:
+        description: 'Limit số phiên (0 = all)'
+        required: false
+        default: '0'
+      user_id:
+        description: 'Lọc user_id (rỗng = all)'
+        required: false
+        default: ''
+
+concurrency:
+  group: mojibake-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Backup + Run migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ github.event.inputs.mode }}"
+            LIMIT="${{ github.event.inputs.limit }}"
+            USER_ID="${{ github.event.inputs.user_id }}"
+          else
+            MODE="execute"
+            LIMIT="0"
+            USER_ID=""
+          fi
+          echo "mode=$MODE"     >> $GITHUB_OUTPUT
+          echo "limit=$LIMIT"   >> $GITHUB_OUTPUT
+          echo "user_id=$USER_ID" >> $GITHUB_OUTPUT
+          echo "Mode: $MODE · limit=$LIMIT · user_id=$USER_ID"
+
+      - name: Setup SSH key cho VPS
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Lấy DB_URL từ archive-api container trên VPS
+        id: dburl
+        env:
+          SSH_HOST: ${{ secrets.VPS_HOST }}
+          SSH_PORT: ${{ secrets.VPS_PORT }}
+          SSH_USER: ${{ secrets.VPS_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          cat > ~/.ssh/config <<EOF
+          Host vps-target
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          EOF
+          API=$(ssh vps-target "docker ps --format '{{.Names}}' | grep -iE 'archive[-_]?api' | head -1")
+          if [ -z "$API" ]; then
+            echo "ERROR: không tìm thấy container archive-api"
+            exit 1
+          fi
+          echo "Container: $API"
+          DB_URL=$(ssh vps-target "docker exec $API env | grep -E '^(DB_URL|DATABASE_URL|ARCHIVE_DB_URL)=' | head -1 | cut -d= -f2-")
+          if [ -z "$DB_URL" ]; then
+            echo "ERROR: không lấy được DB_URL"
+            exit 1
+          fi
+          echo "::add-mask::$DB_URL"
+          echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+          echo "✓ Lấy được DB_URL từ $API (length=${#DB_URL})"
+
+      - name: Cài postgresql-client-17 (server Postgres 17) + psycopg2
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+          echo "/usr/lib/postgresql/17/bin" >> $GITHUB_PATH
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          pip install --quiet psycopg2-binary
+          which pg_dump
+          pg_dump --version
+          python3 -c "import psycopg2; print('psycopg2 OK')"
+
+      - name: Backup DB từ runner
+        id: backup
+        env:
+          DB_URL: ${{ steps.dburl.outputs.db_url }}
+        run: |
+          mkdir -p backups
+          TS=$(date -u +%Y%m%d-%H%M%S)
+          BACKUP="backups/mojibake-backup-$TS.sql"
+          pg_dump "$DB_URL" > "$BACKUP"
+          SIZE=$(du -h "$BACKUP" | cut -f1)
+          echo "✓ Backup: $BACKUP ($SIZE)"
+          echo "backup=$BACKUP" >> $GITHUB_OUTPUT
+
+      - name: Chạy migration (${{ steps.mode.outputs.mode }})
+        env:
+          ARCHIVE_DB_URL: ${{ steps.dburl.outputs.db_url }}
+        run: |
+          EXTRA=""
+          [ "${{ steps.mode.outputs.limit }}" != "0" ] && EXTRA="$EXTRA --limit ${{ steps.mode.outputs.limit }}"
+          [ -n "${{ steps.mode.outputs.user_id }}" ] && EXTRA="$EXTRA --user-id ${{ steps.mode.outputs.user_id }}"
+          if [ "${{ steps.mode.outputs.mode }}" = "execute" ]; then
+            python3 scripts/migrate-fix-mojibake.py --execute --confirm I_HAVE_BACKUP $EXTRA
+          else
+            python3 scripts/migrate-fix-mojibake.py --dry-run $EXTRA
+          fi
+
+      - name: Upload backup artifact
+        if: always() && steps.backup.outputs.backup != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/
+          retention-days: 90
+          if-no-files-found: warn

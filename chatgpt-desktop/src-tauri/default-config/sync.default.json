@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "archive_url": "https://claude.hangocthanh.io.vn/archive",
+  "auth_token": "${env:ARCHIVE_AUTH_TOKEN}",
+  "user_id": "thanh",
+  "project_tag": "chatgpt-desktop",
+  "upload_session_on_compact": true,
+  "upload_summary_on_sum": true,
+  "timeout_seconds": 30,
+  "retry_max": 3,
+  "retry_backoff_seconds": 5
+}

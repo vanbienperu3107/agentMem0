@@ -1,0 +1,30 @@
+# Build artifacts
+/dist
+/src-tauri/target
+/src-tauri/gen/schemas
+
+# Node
+node_modules
+.pnpm-store
+*.log
+
+# Rust
+**/*.rs.bk
+
+# IDE
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local app data
+sessions/
+current.wal
+current.session
+cargo-test.log
+__pycache__
+.pytest_cache
+.claude

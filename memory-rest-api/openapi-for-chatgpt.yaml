@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: Thanh Memory API
+  description: Self-hosted mem0 wrapper, shared with Claude Code and Continue.dev
+  version: 1.0.0
+servers:
+  - url: https://claude.hangocthanh.io.vn/memory
+paths:
+  /memories:
+    post:
+      operationId: addMemory
+      summary: Add a new memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: OK
+    get:
+      operationId: listMemories
+      summary: List all memories
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+  /memories/search:
+    post:
+      operationId: searchMemory
+      summary: Search memories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                limit:
+                  type: integer
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Memory:
+      type: object
+      properties:
+        id:
+          type: string
+        memory:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []

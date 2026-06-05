@@ -1,0 +1,95 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    container_name: memory-qdrant
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    restart: unless-stopped
+    networks: [memnet]
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: memory-postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mem0
+      POSTGRES_USER: mem0
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks: [memnet]
+
+  archive-api:
+    build: ./archive-api
+    container_name: memory-archive-api
+    environment:
+      DB_URL: postgresql://mem0:${POSTGRES_PASSWORD}@postgres/mem0
+      ARCHIVE_AUTH_TOKEN: ${ARCHIVE_AUTH_TOKEN}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      QDRANT_INTERNAL_URL: http://qdrant:6333
+      # Optional: enables LLM summary + semantic search
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MEM0_EMBED_MODEL: ${MEM0_EMBED_MODEL:-text-embedding-3-small}
+      MEM0_EMBED_DIMS: ${MEM0_EMBED_DIMS:-1536}
+      # Optional: enables R2/B2 hybrid storage
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-mem0-transcripts}
+    networks: [memnet]
+    depends_on: [postgres, qdrant]
+    restart: unless-stopped
+
+  mcp-http-server:
+    build: ./mcp-http-server
+    container_name: memory-mcp-http
+    environment:
+      ARCHIVE_URL: http://archive-api:8001
+      ARCHIVE_AUTH_TOKEN: ${ARCHIVE_AUTH_TOKEN}
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN}
+      USER_ID: ${USER_ID:-thanh}
+      MEMORY_API_URL: http://memory-rest-api:8002
+      MEMORY_API_TOKEN: ${CHATGPT_AUTH_TOKEN}
+    networks: [memnet]
+    depends_on: [archive-api, memory-rest-api]
+    restart: unless-stopped
+
+  memory-rest-api:
+    build: ./memory-rest-api
+    container_name: memory-rest-api
+    environment:
+      CHATGPT_AUTH_TOKEN: ${CHATGPT_AUTH_TOKEN}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEFAULT_USER_ID: ${USER_ID:-thanh}
+      COLLECTION_NAME: ${COLLECTION_NAME:-mem0_mcp_selfhosted}
+      PUBLIC_URL: ${MEMORY_PUBLIC_URL:-https://claude.hangocthanh.io.vn/memory}
+    networks: [memnet]
+    depends_on: [qdrant]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8
+    container_name: memory-caddy
+    ports:
+      - "80:80"
+      # Use 8443:443 if sharing port 443 with sslh (corp-proxy SSH setup)
+      # Use 443:443 if SSH not on 443
+      - "8443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    environment:
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+    restart: unless-stopped
+    networks: [memnet]
+    depends_on: [qdrant, archive-api, mcp-http-server]
+
+networks:
+  memnet:
+    driver: bridge

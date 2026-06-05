@@ -1,0 +1,35 @@
+{
+  "enabled": true,
+  "auto_on_compact": false,
+  "active_provider": "claude_max",
+  "output": {
+    "save_to_session_json": true,
+    "save_separate_file": false
+  },
+  "providers": {
+    "claude_max": {
+      "type": "claude_oat",
+      "credentials_path": "~/.claude/.credentials.json",
+      "model": "claude-haiku-4-5-20251001",
+      "max_tokens": 1024,
+      "system_prompt": "Tóm tắt phiên chat sau bằng tiếng Việt theo format:\n\n## Chủ đề\n## Điểm chính\n## Action items (nếu có)\n## Quyết định (nếu có)\n\nNgắn gọn, súc tích."
+    },
+    "deepseek": {
+      "type": "openai",
+      "endpoint": "https://api.deepseek.com/v1/chat/completions",
+      "api_key": "${env:DEEPSEEK_API_KEY}",
+      "model": "deepseek-chat",
+      "max_tokens": 1024,
+      "system_prompt": "Tóm tắt phiên chat bằng tiếng Việt: ## Chủ đề ## Điểm chính ## Action items ## Quyết định. Ngắn gọn."
+    },
+    "openai_4o": {
+      "type": "openai",
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "api_key": "${env:OPENAI_API_KEY}",
+      "model": "gpt-4o-mini",
+      "max_tokens": 1024,
+      "temperature": 0.3,
+      "system_prompt": "Tóm tắt phiên chat bằng tiếng Việt: ## Chủ đề ## Điểm chính ## Action items ## Quyết định. Ngắn gọn."
+    }
+  }
+}

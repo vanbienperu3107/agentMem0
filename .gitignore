@@ -1,0 +1,50 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Data volumes (mounted at runtime)
+data/
+**/data/qdrant/
+**/data/pg/
+**/data/caddy/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+archive-upload.log
+
+# State files
+.cache/
+claude-archive-state.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local archive-env files (contain secrets)
+scripts/archive-env.sh
+scripts/archive-env.ps1
+!scripts/archive-env.example.sh
+!scripts/archive-env.example.ps1
+
+# Backup
+*.bak
+*.backup
+
+# Build artifacts
+dist/
+build/

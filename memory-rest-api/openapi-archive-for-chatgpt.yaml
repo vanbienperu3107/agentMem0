@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: Thanh Archive API
+  description: >
+    Đọc lịch sử phiên chat đã lưu (archive-api). Dùng để xem lại các phiên cũ
+    và full transcript. Import làm Action THỨ HAI trong Custom GPT (auth riêng,
+    Bearer = ARCHIVE_AUTH_TOKEN — khác token của memory).
+  version: 1.0.0
+servers:
+  - url: https://claude.hangocthanh.io.vn/archive
+paths:
+  /sessions:
+    get:
+      operationId: listSessions
+      summary: List recent chat sessions (history)
+      description: Trả danh sách phiên gần nhất; mỗi phiên có id, started_at, summary, message_count.
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 5 }
+        - name: q
+          in: query
+          description: Lọc theo từ khóa trong summary (tùy chọn)
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /sessions/{session_id}:
+    get:
+      operationId: getSession
+      summary: Get full transcript of a session
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /sessions/search-semantic:
+    get:
+      operationId: searchSessions
+      summary: Semantic search across past sessions
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - name: user_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []
