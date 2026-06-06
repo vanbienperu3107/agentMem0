@@ -1,0 +1,137 @@
+name: Build ChatGPT Desktop (macOS)
+
+on:
+  push:
+    tags:
+      - 'chatgpt-desktop-v*'
+      - 'chatgpt-desktop-mac-v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag để upload assets vào (vd chatgpt-desktop-v0.8.6, để trống = không upload)'
+        required: false
+        default: ''
+
+concurrency:
+  group: build-chatgpt-mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-mac:
+    name: "Build macOS (universal arm64 + x86_64)"
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            chatgpt-desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('chatgpt-desktop/src-tauri/Cargo.lock') }}
+
+      - name: Install frontend deps
+        working-directory: chatgpt-desktop
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Build frontend
+        working-directory: chatgpt-desktop
+        run: pnpm build
+
+      - name: Tauri info
+        working-directory: chatgpt-desktop
+        run: pnpm tauri info || true
+
+      - name: Build Tauri release (target ${{ matrix.target }})
+        working-directory: chatgpt-desktop
+        env:
+          # Skip codesign + notarize (dev/test build, không có Apple Developer cert)
+          APPLE_SIGNING_IDENTITY: '-'
+        run: |
+          pnpm tauri build --target ${{ matrix.target }} --bundles dmg,app
+
+      - name: List bundle output
+        working-directory: chatgpt-desktop
+        run: |
+          echo "=== target/${{ matrix.target }}/release/ ==="
+          ls -lh src-tauri/target/${{ matrix.target }}/release/ 2>/dev/null | head -20 || true
+          echo "=== bundle/ ==="
+          find src-tauri/target/${{ matrix.target }}/release/bundle/ -type f 2>/dev/null | head -20 || true
+
+      - name: Upload .dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatGPT-mac-${{ matrix.target }}-dmg
+          path: chatgpt-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+
+      - name: Upload .app artifact (zipped)
+        run: |
+          cd chatgpt-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/ 2>/dev/null && \
+            zip -r ChatGPT-${{ matrix.target }}.app.zip *.app && \
+            cp ChatGPT-${{ matrix.target }}.app.zip $GITHUB_WORKSPACE/ || \
+            echo "no .app to zip"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ChatGPT-mac-${{ matrix.target }}-app
+          path: ChatGPT-${{ matrix.target }}.app.zip
+          if-no-files-found: warn
+
+  release:
+    name: Append assets vào release v0.8.6 (nếu trigger từ tag)
+    needs: build-mac
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/chatgpt-desktop-v') || github.event.inputs.release_tag != ''
+    steps:
+      - name: Determine target tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Flatten
+        run: |
+          mkdir -p release-assets
+          find dist/ -type f \( -name '*.dmg' -o -name '*.zip' \) -exec cp {} release-assets/ \;
+          ls -lh release-assets/
+
+      - name: Append assets vào release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: release-assets/*
+          append_body: false
+          fail_on_unmatched_files: false
