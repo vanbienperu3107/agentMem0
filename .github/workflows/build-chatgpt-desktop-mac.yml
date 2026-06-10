@@ -44,14 +44,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cache Cargo
+      - name: Cache Cargo (chỉ registry + git, KHÔNG cache target để Tauri re-bundle)
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            chatgpt-desktop/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('chatgpt-desktop/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-v2-${{ hashFiles('chatgpt-desktop/src-tauri/Cargo.lock') }}
 
       - name: Install frontend deps
         working-directory: chatgpt-desktop
@@ -65,13 +64,16 @@ jobs:
         working-directory: chatgpt-desktop
         run: pnpm tauri info || true
 
+      - name: Clean bundle output (force fresh bundle)
+        working-directory: chatgpt-desktop
+        run: rm -rf src-tauri/target/${{ matrix.target }}/release/bundle || true
+
       - name: Build Tauri release (target ${{ matrix.target }})
         working-directory: chatgpt-desktop
         env:
-          # Skip codesign + notarize (dev/test build, không có Apple Developer cert)
           APPLE_SIGNING_IDENTITY: '-'
         run: |
-          pnpm tauri build --target ${{ matrix.target }} --bundles dmg,app
+          pnpm tauri build --target ${{ matrix.target }} --verbose
 
       - name: List bundle output
         working-directory: chatgpt-desktop
