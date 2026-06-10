@@ -2,7 +2,7 @@
 
 [🇻🇳 Tiếng Việt](#tiếng-việt) | [🇬🇧 English](#english)
 
-**Latest release: [v0.2.1](https://github.com/thanhiont423/mem0custom/releases/tag/v0.2.1)** ([Changelog](#changelog))
+**Latest release: [v0.8.6](https://github.com/vanbienperu3107/agentMem0/releases/tag/chatgpt-desktop-v0.8.6)** ([Changelog](#changelog))
 
 ---
 
@@ -27,7 +27,7 @@
 
 #### Cách 1 — Portable (recommended, không cần admin)
 
-1. Tải `chatgpt.exe` từ [Releases](https://github.com/thanhiont423/mem0custom/releases/latest)
+1. Tải `chatgpt.exe` từ [Releases](https://github.com/vanbienperu3107/agentMem0/releases/latest)
 2. Đặt vào folder bất kỳ ngoài Program Files (vd `E:\Tool\chatgpt\`, USB)
 3. **Double-click `chatgpt.exe`** — app tự tạo folder `data/` cạnh exe
 4. Yêu cầu: Windows 10+, Microsoft Edge WebView2 (thường có sẵn)
@@ -40,7 +40,7 @@
 #### Cách 3 — Build từ source
 
 ```powershell
-git clone https://github.com/thanhiont423/mem0custom.git
+git clone https://github.com/vanbienperu3107/agentMem0.git
 cd mem0custom/chatgpt-desktop
 .\build-windows.ps1
 ```
@@ -170,7 +170,7 @@ Phần mềm này chỉ được phép sử dụng **CÁ NHÂN, PHI THƯƠNG M�
 
 #### Option 1 — Portable (recommended)
 
-1. Download `chatgpt.exe` from [Releases](https://github.com/thanhiont423/mem0custom/releases/latest)
+1. Download `chatgpt.exe` from [Releases](https://github.com/vanbienperu3107/agentMem0/releases/latest)
 2. Place in any folder outside Program Files (USB, Downloads...)
 3. **Double-click `chatgpt.exe`** — auto-creates `data/` folder next to exe
 4. Requires: Windows 10+, WebView2 Runtime
@@ -233,10 +233,10 @@ PERSONAL USE ONLY. See [DISCLAIMER.md](DISCLAIMER.md).
 
 ## Links
 
-- 🐙 Source: https://github.com/thanhiont423/mem0custom
-- 📦 Releases: https://github.com/thanhiont423/mem0custom/releases
-- 🐛 Issues: https://github.com/thanhiont423/mem0custom/issues
-- 💬 mem0 server: https://github.com/thanhiont423/mem0custom (same repo, `main` branch)
+- 🐙 Source: https://github.com/vanbienperu3107/agentMem0
+- 📦 Releases: https://github.com/vanbienperu3107/agentMem0/releases
+- 🐛 Issues: https://github.com/vanbienperu3107/agentMem0/issues
+- 💬 mem0 server: https://github.com/vanbienperu3107/agentMem0 (same repo, `main` branch)
 
 ## Credits
 

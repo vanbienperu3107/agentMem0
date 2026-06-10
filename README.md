@@ -1,11 +1,48 @@
-# mem0custom
+# agentMem0
 
 **Self-hosted memory server** kết hợp **mem0** (vector memory) + **transcript archive** (lưu full chat) trên VPS duy nhất. Tương thích Claude Desktop App, Claude Code, ChatGPT App, và ChatGPT Custom GPT.
 
 Production: [`claude.hangocthanh.io.vn`](https://claude.hangocthanh.io.vn)
 
-[![Tests](https://github.com/thanhiont423/mem0custom/actions/workflows/tests.yml/badge.svg)](https://github.com/thanhiont423/mem0custom/actions/workflows/tests.yml)
-[![Deploy](https://github.com/thanhiont423/mem0custom/actions/workflows/build-and-deploy.yml/badge.svg?branch=test)](https://github.com/thanhiont423/mem0custom/actions/workflows/build-and-deploy.yml)
+---
+
+## 📦 Download ChatGPT Desktop v0.8.6
+
+**Latest release**: [chatgpt-desktop-v0.8.6](https://github.com/vanbienperu3107/agentMem0/releases/tag/chatgpt-desktop-v0.8.6)
+
+### Windows
+
+| File | Size | Cách dùng |
+|---|---|---|
+| [chatgpt.exe](https://github.com/vanbienperu3107/agentMem0/releases/download/chatgpt-desktop-v0.8.6/chatgpt.exe) | 6.1 MB | **Portable** ⭐ — chạy thẳng, data cạnh exe |
+| [ChatGPT_0.8.6_x64-setup.exe](https://github.com/vanbienperu3107/agentMem0/releases/download/chatgpt-desktop-v0.8.6/ChatGPT_0.8.6_x64-setup.exe) | 2.3 MB | NSIS installer |
+| [ChatGPT_0.8.6_x64_en-US.msi](https://github.com/vanbienperu3107/agentMem0/releases/download/chatgpt-desktop-v0.8.6/ChatGPT_0.8.6_x64_en-US.msi) | 3.1 MB | MSI installer |
+
+### macOS
+
+| File | Chip | Cách dùng |
+|---|---|---|
+| ChatGPT_0.8.6_aarch64.dmg | Apple Silicon (M1/M2/M3/M4) | Double-click → drag vào /Applications |
+| ChatGPT_0.8.6_x64.dmg | Intel Mac | Tương tự |
+| ChatGPT-aarch64-apple-darwin.app.zip | Apple Silicon (portable) | Unzip → chạy .app |
+| ChatGPT-x86_64-apple-darwin.app.zip | Intel (portable) | Tương tự |
+
+> ⚠️ **macOS Gatekeeper warning**: App chưa codesign (không có Apple Developer cert). Lần đầu mở:
+> - **Right-click app → Open** → confirm "Open"
+> - Hoặc terminal: `xattr -d com.apple.quarantine /Applications/ChatGPT.app`
+
+### Tính năng v0.8.6
+- 🕐 **Panel lịch sử riêng** (responsive 30vw) — browse phiên cũ không tốn token
+- 4 chips/row: copy id, xem chi tiết (modal), inject tóm tắt (~200 tok), inject full (~5K+ tok)
+- 🚨 **Nút Lịch sử đổi màu theo config status** — tím=OK, vàng=summarize thiếu, đỏ=sync thiếu
+- 📁 Banner đỏ + nút "Mở thư mục config" khi error
+- 🇻🇳 Fix mojibake tiếng Việt (heuristic `_fixMojibake`)
+- 🗝️ Cấu hình API key + Auth token qua file (`summarize.json`, `sync.json`) thay env var
+- ✏️ Paste event ProseMirror (fix ChatGPT mới không nhận `innerText`)
+
+
+[![Tests](https://github.com/vanbienperu3107/agentMem0/actions/workflows/tests.yml/badge.svg)](https://github.com/vanbienperu3107/agentMem0/actions/workflows/tests.yml)
+[![Deploy](https://github.com/vanbienperu3107/agentMem0/actions/workflows/build-and-deploy.yml/badge.svg?branch=test)](https://github.com/vanbienperu3107/agentMem0/actions/workflows/build-and-deploy.yml)
 
 ---
 
@@ -51,7 +88,7 @@ Client (Mac / Windows)              VPS (claude.hangocthanh.io.vn)
 | Postgres | Neon Cloud (ap-southeast-1) |
 | Object storage | Cloudflare R2 (APAC) |
 | Container | Docker Compose v2 |
-| Registry | GHCR (`ghcr.io/thanhiont423/mem0custom-*`) |
+| Registry | GHCR (`ghcr.io/vanbienperu3107/agentMem0-*`) |
 | CI/CD | GitHub Actions |
 
 ## Quick start
@@ -60,7 +97,7 @@ Client (Mac / Windows)              VPS (claude.hangocthanh.io.vn)
 
 ```bash
 # Clone repo
-git clone https://github.com/thanhiont423/mem0custom.git
+git clone https://github.com/vanbienperu3107/agentMem0.git
 cd mem0custom
 
 # Setup environment
@@ -361,7 +398,7 @@ Không liên kết với mem0.ai, Anthropic, OpenAI hay bất kỳ tổ chức n
 
 ## Liên hệ
 
-- **GitHub Issues**: [github.com/thanhiont423/mem0custom/issues](https://github.com/thanhiont423/mem0custom/issues)
+- **GitHub Issues**: [github.com/vanbienperu3107/agentMem0/issues](https://github.com/vanbienperu3107/agentMem0/issues)
 - **Email**: hangocthanhperu3107@gmail.com (chỉ cho câu hỏi technical, không hỗ trợ sử dụng cá nhân)
 
 ---
