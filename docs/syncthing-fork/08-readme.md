@@ -1,8 +1,8 @@
-# Syncthing Fork — Proxy-Friendly Continuous File Synchronization
+# Syncthing Fork - Proxy-Friendly Continuous File Synchronization
 
-Fork từ [syncthing/syncthing](https://github.com/syncthing/syncthing) — tối ưu cho môi trường proxy chỉ cho phép port 443, sync 2 chiều real-time giữa VPS hub và nhiều máy cá nhân.
+Fork từ [syncthing/syncthing](https://github.com/syncthing/syncthing), được thiết kế lại để chạy ổn qua proxy chỉ mở port 443, đồng bộ 2 chiều theo thời gian thực giữa một VPS hub và nhiều máy client.
 
-## Khác biệt so với Syncthing gốc
+## Tóm tắt thay đổi
 
 | | Syncthing gốc | Bản fork |
 |---|---|---|
@@ -10,25 +10,35 @@ Fork từ [syncthing/syncthing](https://github.com/syncthing/syncthing) — tố
 | **Auth** | TLS client certs (DeviceID = cert hash) | Bearer token (JWT) |
 | **Scanning** | Periodic full scan + fsnotify | Incremental: dirty paths + digest cache |
 | **Transfer** | Block exchange (fixed-size blocks) | rsync delta (rolling hash, variable blocks) |
-| **Conflict** | .sync-conflict files | Last-writer-wins + ancestor tracking |
+| **Conflict** | `.sync-conflict` files | Last-writer-wins + ancestor tracking |
 
 ## Kiến trúc
 
 ```
-              ┌──────────────────────┐
-              │   VPS Hub (:443)     │
-              │   HTTPS + WebSocket  │
-              │   JWT auth           │
-              └──┬───────┬───────┬───┘
-                 │       │       │
-            WSS  │  WSS  │  WSS  │
-                 │       │       │
-           ┌─────┴┐  ┌──┴───┐  ┌┴─────┐
-           │ PC A │  │ PC B │  │ PC C │
-           └──────┘  └──────┘  └──────┘
+              ┌──────────────────────────────┐
+              │   VPS Hub (:443)             │
+              │   HTTPS + WebSocket          │
+              │   JWT auth                   │
+              └──────────┬──────────┬────────┘
+                         │          │
+                   WSS   │    WSS   │
+                         │          │
+                ┌────────┴┐  ┌──────┴──────┐
+                │ Client A│  │ Client B    │
+                └──────────┘  └─────────────┘
 ```
 
-Mọi traffic đi qua port 443 (HTTPS) — hoạt động qua mọi proxy, firewall, corporate network.
+Mọi traffic đi qua port 443 (HTTPS), nên hoạt động qua proxy, firewall, và mạng doanh nghiệp dễ hơn bản gốc.
+
+## Luồng hoạt động
+
+1. Admin khởi tạo hub trên VPS, bật HTTPS/WSS tại `:443`, cấu hình `hubSecret`, `registrationSecret`, và đường dẫn chứng chỉ TLS.
+2. Device client đăng ký với hub qua API, nhận JWT bearer token riêng cho từng máy.
+3. Client mở kết nối `wss://.../ws`, gửi token trong `Authorization: Bearer <jwt>`, hub xác thực rồi cho phép vào phiên đồng bộ.
+4. File watcher đánh dấu `dirty paths`; incremental scanner chỉ quét lại phần thay đổi, đồng thời dùng digest cache để bỏ qua file không đổi.
+5. Khi cần truyền dữ liệu, receiver gửi signature, sender chạy rsync deltify, rồi patch phía nhận để chỉ gửi phần byte thực sự thay đổi.
+6. Nếu hai phía cùng sửa một file, reconciler dùng ancestor tracking và last-writer-wins theo `mtime` mới nhất, không tạo file conflict.
+7. Metadata và ancestor được ghi lại sau mỗi lần đồng bộ để lần sau so sánh nhanh hơn.
 
 ## Quick Start
 
@@ -57,22 +67,17 @@ EOF
 ### 2. Register Device
 
 ```bash
-# Từ máy client
 curl -X POST https://your-vps:443/api/register \
   -H "X-Registration-Secret: <registration-secret>" \
   -H "Content-Type: application/json" \
   -d '{"device_name": "My Laptop"}'
-
-# Lưu token từ response
 ```
 
 ### 3. Setup Client
 
 ```bash
-# Build (hoặc download binary)
 go run build.go -no-upgrade
 
-# Config
 cat > config.yaml <<EOF
 hubURL: "wss://your-vps:443/ws"
 deviceToken: "<token-from-register>"
@@ -81,13 +86,12 @@ syncFolders:
     id: "default"
 EOF
 
-# Start
 ./bin/syncthing --config=config.yaml
 ```
 
 ### 4. Thêm máy khác
 
-Lặp lại bước 2 + 3 cho mỗi máy. Tất cả máy share cùng folder ID sẽ tự động sync qua hub.
+Lặp lại bước đăng ký và cấu hình client cho mỗi máy mới. Tất cả máy dùng cùng folder ID sẽ tự động sync qua hub.
 
 ## Docker
 
@@ -109,10 +113,7 @@ docker run -d --name syncthing-client \
 
 ## Proxy Configuration
 
-Bản fork hoạt động qua mọi HTTP/HTTPS proxy mà không cần cấu hình đặc biệt:
-
 ```bash
-# Standard proxy env vars (gorilla/websocket tự đọc)
 export HTTP_PROXY=http://proxy.company.com:8080
 export HTTPS_PROXY=http://proxy.company.com:8080
 
@@ -121,57 +122,39 @@ export HTTPS_PROXY=http://proxy.company.com:8080
 
 Không cần `all_proxy`, không cần SOCKS5, không cần proxy đặc biệt. WebSocket upgrade đi qua HTTPS proxy bình thường.
 
-## Features chi tiết
+## Chi tiết theo feature
 
-### Incremental Scanner
+### F1 - WSS Transport
 
-Thay vì scan toàn bộ folder mỗi interval, bản fork chỉ scan files thay đổi:
-- fsnotify detect file changes → đánh dấu dirty paths
-- Chỉ rescan dirty paths, skip phần còn lại
-- Digest cache: files không đổi mtime/size → skip re-hash
-- Kết quả: scan 5 files thay đổi trong folder 100K files chỉ mất < 1 giây
+Chuyển toàn bộ transport sang WebSocket Secure trên port 443. BEP protobuf messages được giữ nguyên, chỉ thay lớp framing bên ngoài.
 
-### rsync Delta Transfer
+### F2 - Bearer Token Auth
 
-Thay vì transfer toàn bộ blocks khi file thay đổi:
-- Rolling hash detect matching blocks tại bất kỳ offset
-- Chỉ gửi delta (phần thay đổi thực sự)
-- Insert 1 byte ở đầu file 100MB → chỉ gửi ~1KB delta
+Mỗi device đăng ký với hub, nhận JWT token. Hub xác thực token trong header `Authorization` trước khi cho phép kết nối WSS.
 
-### LWW + Ancestor
+### F3 - Incremental Scanner
 
-Khi 2 máy sửa cùng file đồng thời:
-- Bên sửa cuối cùng (mtime mới nhất) wins
-- Không tạo .sync-conflict files
-- Ancestor tracking đảm bảo detect đúng "1 bên sửa" vs "2 bên sửa"
+Thay periodic full scan bằng baseline snapshot, dirty paths, selective rescan, và digest cache để tránh quét lại toàn bộ folder.
 
-## Build từ source
+### F4 - rsync Delta Transfer
 
-```bash
-# Yêu cầu: Go 1.22+
-git clone https://github.com/vanbienperu3107/syncthing.git
-cd syncthing
-go run build.go -no-upgrade
+Thay block exchange cố định bằng rolling hash + strong hash để chỉ truyền phần byte thay đổi thật sự.
 
-# Cross-compile
-GOOS=linux GOARCH=amd64 go run build.go -no-upgrade
-GOOS=linux GOARCH=arm64 go run build.go -no-upgrade
+### F5 - LWW + Ancestor Tracking
 
-# Tests
-go test ./... -count=1 -race
-```
+Thay cơ chế tạo `.sync-conflict` bằng last-writer-wins kết hợp ancestor tracking để phân biệt rõ một phía sửa hay hai phía cùng sửa.
 
 ## Tài liệu triển khai
 
 | File | Nội dung |
-|------|----------|
-| `00-architecture-summary.md` | Tổng quan kiến trúc và tính năng |
+|---|---|
+| `00-architecture-summary.md` | Tổng quan kiến trúc và thay đổi chính |
 | `01-setup-guide.md` | Hướng dẫn clone, setup, workflow |
 | `02-feature-wss-transport.md` | Chi tiết F1: WSS Transport |
-| `03-feature-bearer-auth.md` | Chi tiết F2: Bearer Token Auth |
+| `03-feature-bearer-token-authentication.md` | Chi tiết F2: Bearer Token Auth |
 | `04-feature-incremental-scanner.md` | Chi tiết F3: Incremental Scanner |
-| `05-feature-rsync-delta.md` | Chi tiết F4: rsync Delta Transfer |
-| `06-feature-lww-ancestor.md` | Chi tiết F5: LWW + Ancestor |
+| `05-feature-rsync-delta-transfer.md` | Chi tiết F4: rsync Delta Transfer |
+| `06-feature-lww-ancestor-tracking.md` | Chi tiết F5: LWW + Ancestor Tracking |
 | `07-merge-release.md` | Quy trình merge, test, release |
 
 ## License
@@ -181,7 +164,7 @@ go test ./... -count=1 -race
 ## Credits
 
 Fork từ [Syncthing](https://syncthing.net/) bởi [vanbienperu3107](https://github.com/vanbienperu3107).
-rsync algorithm và incremental scan lấy cảm hứng từ [Mutagen](https://github.com/mutagen-io/mutagen).
+Rsync algorithm và incremental scan lấy cảm hứng từ [Mutagen](https://github.com/mutagen-io/mutagen).
 
 ## Miễn trừ trách nhiệm
 
