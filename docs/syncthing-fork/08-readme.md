@@ -182,3 +182,18 @@ go test ./... -count=1 -race
 
 Fork từ [Syncthing](https://syncthing.net/) bởi [vanbienperu3107](https://github.com/vanbienperu3107).
 rsync algorithm và incremental scan lấy cảm hứng từ [Mutagen](https://github.com/mutagen-io/mutagen).
+
+## Miễn trừ trách nhiệm
+
+Tài liệu và mã nguồn trong bộ Syncthing fork này được cung cấp cho mục đích nghiên cứu, thử nghiệm và sử dụng cá nhân. Đây là một project độc lập, không có bất kỳ liên kết, chứng thực hay bảo trợ nào từ Syncthing, các tác giả gốc, hoặc bên thứ ba nào khác.
+
+Phần mềm được cung cấp **nguyên trạng**, không có bảo hành dưới bất kỳ hình thức nào, dù rõ ràng hay ngầm định. Người dùng tự chịu trách nhiệm khi triển khai, cấu hình, vận hành, và kiểm tra lại trước khi dùng trong môi trường thực tế.
+
+Tác giả không chịu trách nhiệm đối với:
+
+- Mất mát dữ liệu, đồng bộ sai, hoặc hỏng dữ liệu do cấu hình lỗi hay lỗi vận hành
+- Gián đoạn dịch vụ, downtime, hoặc lỗi tương thích khi Syncthing hoặc môi trường hạ tầng thay đổi
+- Chi phí phát sinh từ VPS, proxy, chứng chỉ TLS, hoặc các dịch vụ bên thứ ba khác
+- Việc sử dụng project không phù hợp với quy định nội bộ, điều khoản dịch vụ, hoặc pháp luật áp dụng
+
+Khi dùng project này cho dữ liệu nhạy cảm, dữ liệu cá nhân, hoặc môi trường production, người dùng cần tự thực hiện backup, kiểm thử, rà soát bảo mật, và đánh giá tuân thủ trước khi triển khai.
