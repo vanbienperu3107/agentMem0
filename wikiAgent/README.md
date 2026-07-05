@@ -1,58 +1,66 @@
 # wikiAgent — Wiki Knowledge Layer
 
-> Phase 1 of **Roadmap 3.0 — Personal AI Knowledge System**
-> Turn every AI conversation (and later Markdown files & WhatsApp) into
-> structured, searchable knowledge that Claude & ChatGPT can recall from any
-> client via MCP/REST.
+> **Phase 1 of Roadmap 3.0 — Personal AI Knowledge System**
+> *Từ mem0custom đến multi-source knowledge base tự động.*
+>
+> Biến mọi cuộc hội thoại AI (và sau này là file Markdown & WhatsApp) thành
+> **knowledge có cấu trúc, tìm kiếm được**, để Claude & ChatGPT truy cập qua
+> MCP/REST từ bất kỳ client nào.
 
-`wikiAgent` distills reusable technical facts from your conversations and stores
-them in a single Qdrant collection (`wiki_knowledge`). It is designed to sit
-next to [`agentMem0`](https://github.com/vanbienperu3107/agentMem0) and **reuse
-its Qdrant instance and API keys — no new datastore, no new service required.**
+`wikiAgent` là **trung tâm kết hợp nhiều giải pháp (multi-source)**: nó gom
+knowledge từ nhiều nguồn khác nhau vào **một** collection Qdrant duy nhất
+(`wiki_knowledge`) và phục vụ mọi AI client qua một API thống nhất. Thiết kế để
+đứng cạnh [`agentMem0`](https://github.com/vanbienperu3107/agentMem0) và **dùng
+lại Qdrant + API keys sẵn có — không thêm datastore, không thêm service.**
+
+Production: `claude.hangocthanh.io.vn` · Tác giả: Hà Ngọc Thanh · `vanbienperu3107`
 
 ---
 
-## Why
+## Ý tưởng
 
-`agentMem0` archives whole transcripts and manages loose mem0 facts. `wikiAgent`
-adds the missing layer: **structured, deduplicated, multi-source knowledge** with
-an explicit schema (`topic`, `content`, `source`, `tags`, `confidence`,
-timestamps) that any AI client can query.
+`agentMem0` lưu transcript nguyên bản và quản lý facts rời (mem0). `wikiAgent`
+bổ sung lớp còn thiếu: **knowledge có cấu trúc, khử trùng lặp, đa nguồn**, với
+schema tường minh (`topic`, `content`, `source`, `tags`, `confidence`,
+timestamps) mà mọi AI client đều query được.
 
 ```
-AI conversation ends
-   ↓ summarizer.py (existing)
-   ↓ knowledge_extractor.py   ← Haiku extracts structured facts
-   ↓ wiki_knowledge (Qdrant)  ← source: "conversation"
-   ↓ search_wiki / list_wiki_topics (MCP tools)
+Nguồn 1: AI conversation  ─┐
+Nguồn 2: Markdown file     ├─►  knowledge_extractor / ingest  ─►  wiki_knowledge (Qdrant)
+Nguồn 3: WhatsApp chat     ─┘                                          │
+                                                                       ▼
+                                        search_wiki · list_wiki_topics  (MCP + REST)
+                                                                       │
+                             Claude.ai · ChatGPT · Claude Code · Custom GPT
 ```
 
-## Design principles (from Roadmap 3.0)
+## Nguyên tắc thiết kế (từ Roadmap 3.0)
 
-- **No new service** — runs on the Qdrant you already have.
-- **LLM only for judgment** — deciding *what is a reusable fact*. Routing,
-  filtering, and dedup are deterministic code.
-- **Privacy-first** — a keyword filter blocks sensitive messages *before* any
-  LLM call or storage.
-- **Idempotent** — deterministic `uuid5(content)` ids mean re-ingesting the same
-  fact overwrites in place instead of duplicating.
+- **Không thêm service** — chạy trên Qdrant bạn đã có.
+- **LLM chỉ dùng cho judgment** — quyết định *cái gì là fact đáng tái sử dụng*.
+  Routing / filter / dedup đều là code tất định.
+- **Privacy-first** — filter keyword nhạy cảm *trước* mọi lời gọi LLM và trước
+  khi lưu.
+- **Idempotent** — `uuid5(content)` tất định ⇒ re-ingest cùng một fact là ghi đè
+  tại chỗ, không nhân bản.
+- **Đo trước khi tối ưu** — RAG 2.0 (Phase 4) chỉ làm sau khi thu 50 query thực tế.
 
-## Architecture
+## Kiến trúc
 
 ```
 wiki_agent/
-├── config.py             # all env vars in one place
+├── config.py             # gom toàn bộ env var
 ├── embeddings.py         # OpenAI text-embedding-3-small (1536 dims)
-├── qdrant_helper.py      # wiki_knowledge collection: ensure / upsert / search / scroll
+├── qdrant_helper.py      # collection wiki_knowledge: ensure / upsert / search / scroll
 ├── knowledge_extractor.py# privacy filter → Haiku extract → embed + store
 ├── wiki_search.py        # search_wiki() + list_wiki_topics()
 ├── app.py                # REST API (FastAPI): ingest + query
 └── mcp_server.py         # MCP HTTP server (Streamable HTTP, JSON-RPC)
 ```
 
-### `wiki_knowledge` payload schema
+### Schema payload `wiki_knowledge`
 
-| field        | type       | example                          |
+| field        | kiểu       | ví dụ                            |
 |--------------|------------|----------------------------------|
 | `topic`      | str        | `OCS/charging`                   |
 | `content`    | str        | `MK201=50MB và MK311=50MB`       |
@@ -66,32 +74,32 @@ wiki_agent/
 
 ### REST (`wiki_agent.app:app`, port 8010)
 
-| Method | Path                     | Purpose                                     |
-|--------|--------------------------|---------------------------------------------|
-| POST   | `/ingest/conversation`   | Hướng B — extract facts from a transcript   |
-| POST   | `/ingest/file`           | Hướng A — index a Markdown file (conf=1.0)  |
+| Method | Path                     | Mục đích                                     |
+|--------|--------------------------|----------------------------------------------|
+| POST   | `/ingest/conversation`   | Hướng B — extract facts từ transcript        |
+| POST   | `/ingest/file`           | Hướng A — index file Markdown (conf=1.0)     |
 | GET    | `/wiki/search`           | semantic search (`q`, `topic?`, `source?`, `limit`) |
-| GET    | `/wiki/topics`           | topic list with counts + sources            |
-| GET    | `/health`                | liveness                                    |
+| GET    | `/wiki/topics`           | danh sách topic + count + sources            |
+| GET    | `/health`                | liveness                                     |
 
-All non-health endpoints require `Authorization: Bearer $WIKI_AUTH_TOKEN`.
+Mọi endpoint (trừ health) cần `Authorization: Bearer $WIKI_AUTH_TOKEN`.
 
 ### MCP tools (`wiki_agent.mcp_server:app`, port 8011)
 
 - `search_wiki(query, topic?, source?, limit=5)`
 - `list_wiki_topics()`
 
-Streamable HTTP transport (MCP 2025-03-26), same shape as the agentMem0
-`mcp-http-server`, so it can sit behind the same Caddy/OAuth front door.
+Streamable HTTP transport (MCP 2025-03-26), cùng shape với `mcp-http-server` của
+agentMem0 nên đặt được sau chung Caddy/OAuth.
 
-## Quick start
+## Chạy thử nhanh
 
 ```bash
-cp .env.example .env        # fill in OPENAI_API_KEY, ANTHROPIC_API_KEY, tokens
-docker compose up --build   # brings up qdrant + wiki-api + wiki-mcp
+cp .env.example .env        # điền OPENAI_API_KEY, ANTHROPIC_API_KEY, tokens
+docker compose up --build   # dựng qdrant + wiki-api + wiki-mcp
 ```
 
-Ingest a conversation:
+Ingest một hội thoại:
 
 ```bash
 curl -s localhost:8010/ingest/conversation \
@@ -100,52 +108,83 @@ curl -s localhost:8010/ingest/conversation \
   -d '{"transcript":[{"role":"user","content":"MK201 charge 50MB"}],"session_id":"s1"}'
 ```
 
-Search it back:
+Tìm lại:
 
 ```bash
 curl -s "localhost:8010/wiki/search?q=OCS%20charge&limit=3" \
   -H "Authorization: Bearer $WIKI_AUTH_TOKEN"
 ```
 
-## Integrating with agentMem0
+---
 
-Add three lines after the summarizer in `archive-api/app.py`:
+## Hệ sinh thái — các dự án kết hợp
+
+`wikiAgent` là điểm hội tụ của nhiều dự án trong tài khoản. Mỗi dự án đóng một
+vai trò trong pipeline knowledge:
+
+| Dự án | Vai trò trong wikiAgent | Phase | Trạng thái |
+|-------|-------------------------|-------|------------|
+| [`agentMem0`](https://github.com/vanbienperu3107/agentMem0) `Python` | Memory + knowledge server (MCP+REST), chia sẻ **Qdrant** & keys; gọi `extract_and_store()` sau summarizer | 1 | ✅ Production |
+| [`syncthingMem0`](https://github.com/vanbienperu3107/syncthingMem0) `Go` | File sync transport WSS/443 → đẩy Markdown lên Hub → `POST /ingest/file` | 2 | 🔄 Building |
+| **WhatsApp agent** `Node.js` | Baileys realtime → Qwen classify → Haiku extract → `POST /ingest/whatsapp` | 3 | 📋 Planned |
+| [`deployHeadscale`](https://github.com/vanbienperu3107/deployHeadscale) `Python` | Self-host mesh control plane — lớp mạng cho Hub ↔ client trong môi trường proxy-heavy | 2–3 | ✅ |
+| [`tailscale_mod`](https://github.com/vanbienperu3107/tailscale_mod) `Go` · [`TailscaleRemote`](https://github.com/vanbienperu3107/TailscaleRemote) `TS` | Transport/mesh tự chủ — phương án thay/bổ sung cho V2Ray khi kết nối các nguồn qua NAT/firewall | 2–3 | ✅ |
+
+> **Cách kết hợp:** ba nguồn knowledge (hội thoại / file / WhatsApp) đi qua ba
+> "giải pháp" ingest riêng, nhưng cùng đổ về một `wiki_knowledge` và query qua
+> cùng một MCP/REST. Lớp mạng (syncthingMem0 + Tailscale stack) lo phần vận
+> chuyển an toàn qua môi trường mạng hạn chế; `agentMem0` lo lưu trữ & auth.
+
+### Tích hợp với agentMem0
+
+Thêm 3 dòng sau summarizer trong `archive-api/app.py`:
 
 ```python
 from wiki_agent import knowledge_extractor
 n_facts = knowledge_extractor.extract_and_store(transcript, session_id=session_id)
 ```
 
-Point `QDRANT_INTERNAL_URL` at the shared Qdrant and drop the bundled `qdrant`
-service from `docker-compose.yml`.
+Trỏ `QDRANT_INTERNAL_URL` về Qdrant dùng chung và bỏ service `qdrant` trong
+`docker-compose.yml`. Chi tiết map từng phase với dự án: xem
+[`docs/ECOSYSTEM.md`](docs/ECOSYSTEM.md).
 
-## Development
+---
+
+## Roadmap 5 Phase
+
+Repo này hiện thực **Phase 1**. Endpoint & schema đã định hình sẵn cho các phase sau:
+
+| Phase | Nội dung | Thời gian | Trạng thái (repo này) |
+|-------|----------|-----------|------------------------|
+| 1 | Wiki Knowledge Layer (conversation → facts) | 6–7/2026 | ✅ đã hiện thực |
+| 2 | File Sync (`/ingest/file`) — chờ syncthingMem0 WSS | 7–8/2026 | ✅ endpoint sẵn sàng |
+| 3 | WhatsApp pipeline — chờ V2Ray/mesh proxy | 8–9/2026 | 🔜 `source:"whatsapp"` reserved |
+| 4 | RAG 2.0 (hybrid BM25+vector, reranker, time-aware) | 9–10/2026 | 🔒 sau 50 query thực tế |
+| 5 | Multi-source consolidation (dedup, contradiction, versioning) | 10–12/2026 | 🔒 nightly job |
+
+### Ước tính chi phí (toàn stack Phase 1–3)
+
+| Item | $/tháng |
+|------|---------|
+| VPS (Contabo/Hetzner) | 5–10 |
+| Neon Postgres / Cloudflare R2 | 0–1 |
+| OpenAI Embeddings | 1–3 |
+| Claude Haiku (extractor) | 2–5 |
+| Qwen 7B DeepInfra (WhatsApp classify) | 1–2 |
+| **Tổng** | **~$10–21/tháng** |
+
+Kế hoạch đầy đủ (5 tab tương tác): [`docs/ROADMAP-3.0.html`](docs/ROADMAP-3.0.html).
+
+## Phát triển
 
 ```bash
 pip install -r requirements-dev.txt
 pytest -q
 ```
 
-Tests mock the LLM, embeddings, and Qdrant, so they run offline. CI lives in
-`.github/workflows/ci.yml` (active once this project is extracted to its own
-repository).
-
-## Roadmap
-
-This repo implements **Phase 1**. The endpoints and schema are already shaped
-for later phases:
-
-| Phase | What                              | Status (in this repo)               |
-|-------|-----------------------------------|-------------------------------------|
-| 1     | Wiki Knowledge Layer              | ✅ implemented                       |
-| 2     | File Sync (`/ingest/file`)        | ✅ endpoint ready, awaits syncthingMem0 WSS |
-| 3     | WhatsApp pipeline                 | 🔜 `source: "whatsapp"` reserved    |
-| 4     | RAG 2.0 (hybrid + reranker)       | 🔒 after 50 real queries            |
-| 5     | Multi-source consolidation        | 🔒 nightly job                      |
-
-Full plan: [`docs/ROADMAP-3.0.html`](docs/ROADMAP-3.0.html).
+Test mock LLM, embeddings và Qdrant nên chạy offline. CI ở
+`.github/workflows/ci.yml`.
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
-Part of the Personal AI Knowledge System · Hà Ngọc Thanh · vanbienperu3107
+Apache-2.0 — xem [LICENSE](LICENSE). Một phần của Personal AI Knowledge System.
