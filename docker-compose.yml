@@ -107,6 +107,10 @@ services:
     image: containrrr/watchtower:1.7.1
     container_name: memory-watchtower
     restart: unless-stopped
+    environment:
+      # watchtower 1.7.1's default docker API (1.25) is rejected by the newer
+      # daemon (min 1.40); pin a supported version.
+      DOCKER_API_VERSION: "1.41"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 30 --cleanup --include-restarting memory-mcp-http memory-archive-api memory-rest-api
