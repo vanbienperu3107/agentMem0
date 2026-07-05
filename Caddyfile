@@ -17,4 +17,38 @@ claude.hangocthanh.io.vn {
     # FastAPI handles auth via Authorization header
     handle /archive/* {
         uri strip_prefix /archive
-        rev
+        reverse_proxy archive-api:8001
+    }
+
+    # Memory REST API — ChatGPT Custom GPT (mem0 wrapper)
+    handle /memory/* {
+        uri strip_prefix /memory
+        reverse_proxy memory-rest-api:8002
+    }
+
+    # MCP HTTP server — Claude App + ChatGPT App (OAuth 2.1 + DCR).
+    # No strip_prefix: internal routes are /mcp/.well-known/*, /mcp/register, etc.
+    handle /mcp* {
+        reverse_proxy mcp-http-server:8000 {
+            flush_interval -1
+        }
+    }
+
+    handle /health {
+        respond "ok" 200
+    }
+
+    handle {
+        respond "Not Found" 404
+    }
+
+    log {
+        output file /data/access.log
+        format json
+    }
+}
+
+# Separate service on the same host (not part of the memory stack) — VPN relay.
+vpn6.hangocthanh.io.vn {
+    reverse_proxy relay-vpn6:8080
+}
