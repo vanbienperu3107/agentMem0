@@ -4,3 +4,5 @@ psycopg2-binary==2.9.9
 pydantic==2.9.0
 httpx==0.27.2
 boto3==1.35.0
+# wikiAgent — Wiki Knowledge Layer (Phase 1), pinned to a commit for reproducible builds
+wiki-agent @ https://github.com/vanbienperu3107/wikiAgent/archive/cf8559dc7c0a080e83b39e9b8f0ff6614d4fe14d.tar.gz

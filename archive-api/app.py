@@ -149,7 +149,15 @@ def summarize_session(session_id: str, authorization: str = Header(None)):
                 cur.execute("UPDATE chat_sessions SET embedding_id=%s WHERE id=%s", (session_id, session_id))
         except Exception as e:
             print(f"Embedding/upsert failed (non-fatal): {e}")
-    return {"id": session_id, "summary": summary_text}
+    # Phase 1 — Wiki Knowledge Layer: extract structured facts into wiki_knowledge.
+    # Non-fatal: a wiki-extract failure must never break the summarize flow.
+    wiki_facts = 0
+    try:
+        from wiki_agent import knowledge_extractor
+        wiki_facts = knowledge_extractor.extract_and_store(transcript, session_id=session_id)
+    except Exception as e:
+        print(f"Wiki extract failed (non-fatal): {e}")
+    return {"id": session_id, "summary": summary_text, "wiki_facts": wiki_facts}
 
 
 @app.get("/sessions/{session_id}/context")

@@ -254,6 +254,34 @@ TOOLS = [
             "required": ["transcript"],
         },
     },
+    # Wiki Knowledge Layer (Phase 1) — structured facts across conversations/files/chat
+    {
+        "name": "search_wiki",
+        "description": (
+            "Semantic search over the personal wiki knowledge base (facts distilled "
+            "from past conversations, files, and chat). Use to recall a technical fact, "
+            "config value, or decision. Prefer this over browsing sessions for 'what did "
+            "I learn about X' questions."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "topic": {"type": "string", "description": "Optional exact topic filter, e.g. 'OCS/charging'"},
+                "source": {"type": "string", "description": "Optional: conversation | file | whatsapp"},
+                "limit": {"type": "integer", "default": 5},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "list_wiki_topics",
+        "description": (
+            "List all topics in the wiki knowledge base with fact counts and which "
+            "sources contributed. Use to discover what knowledge exists."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
     # ChatGPT deep-research compatibility — aliases
     {
         "name": "search",
@@ -380,6 +408,20 @@ async def exec_tool(name: str, args: dict):
             "metadata": {"source": "save_full_session"},
         }
         return await call_archive("POST", "/sessions", json=payload)
+
+    if name == "search_wiki":
+        # In-process call into the wiki_agent library (shares the same Qdrant).
+        from wiki_agent import wiki_search
+        return wiki_search.search_wiki(
+            args["query"],
+            topic=args.get("topic"),
+            source=args.get("source"),
+            limit=args.get("limit", 5),
+        )
+
+    if name == "list_wiki_topics":
+        from wiki_agent import wiki_search
+        return wiki_search.list_wiki_topics()
 
     raise HTTPException(400, f"Unknown tool: {name}")
 

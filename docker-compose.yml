@@ -34,6 +34,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       MEM0_EMBED_MODEL: ${MEM0_EMBED_MODEL:-text-embedding-3-small}
       MEM0_EMBED_DIMS: ${MEM0_EMBED_DIMS:-1536}
+      # Wiki Knowledge Layer (Phase 1) — shares this Qdrant, own collection
+      WIKI_COLLECTION: ${WIKI_COLLECTION:-wiki_knowledge}
+      WIKI_MIN_CONFIDENCE: ${WIKI_MIN_CONFIDENCE:-0.5}
       # Optional: enables R2/B2 hybrid storage
       R2_ENDPOINT_URL: ${R2_ENDPOINT_URL:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
@@ -53,6 +56,12 @@ services:
       USER_ID: ${USER_ID:-thanh}
       MEMORY_API_URL: http://memory-rest-api:8002
       MEMORY_API_TOKEN: ${CHATGPT_AUTH_TOKEN}
+      # Wiki Knowledge Layer (Phase 1) — search_wiki/list_wiki_topics run in-process
+      # here, so this service needs direct Qdrant + embeddings access.
+      QDRANT_INTERNAL_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      WIKI_COLLECTION: ${WIKI_COLLECTION:-wiki_knowledge}
     networks: [memnet]
     depends_on: [archive-api, memory-rest-api]
     restart: unless-stopped
