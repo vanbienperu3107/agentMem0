@@ -99,6 +99,19 @@ services:
     networks: [memnet]
     depends_on: [qdrant, archive-api, mcp-http-server]
 
+  # Pull-based auto-update: every 30s, check GHCR for new images of the 3 app
+  # containers and pull + recreate them. Infra (qdrant/postgres/caddy) is NOT
+  # monitored — only the containers named in `command`. Remove with:
+  #   docker rm -f memory-watchtower
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: memory-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup --include-restarting memory-mcp-http memory-archive-api memory-rest-api
+    depends_on: [archive-api, mcp-http-server, memory-rest-api]
+
 networks:
   memnet:
     driver: bridge
