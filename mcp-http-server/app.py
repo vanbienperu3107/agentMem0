@@ -254,6 +254,32 @@ TOOLS = [
             "required": ["transcript"],
         },
     },
+    {
+        "name": "search_wiki",
+        "description": (
+            "Semantic search over the personal wiki knowledge base (structured facts "
+            "distilled from conversations, files, and WhatsApp — separate from the raw "
+            "session archive). Use to recall a technical fact, config value, or decision."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "topic": {"type": "string", "description": "Optional exact topic filter, e.g. 'OCS/charging'"},
+                "source": {"type": "string", "description": "Optional: conversation | file | whatsapp | manual"},
+                "limit": {"type": "integer", "default": 5},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "list_wiki_topics",
+        "description": (
+            "List all topics in the wiki knowledge base with fact counts and which "
+            "sources contributed. Use to discover what knowledge exists."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
     # ChatGPT deep-research compatibility — aliases
     {
         "name": "search",
@@ -364,6 +390,19 @@ async def exec_tool(name: str, args: dict):
             "POST", "/memories/search",
             json={"query": q, "user_id": USER_ID, "limit": args.get("limit", 10)},
         )
+
+    if name == "search_wiki":
+        params = {"q": args["query"]}
+        if args.get("topic"):
+            params["topic"] = args["topic"]
+        if args.get("source"):
+            params["source"] = args["source"]
+        if args.get("limit"):
+            params["limit"] = args["limit"]
+        return await call_archive("GET", "/wiki/search", params=params)
+
+    if name == "list_wiki_topics":
+        return await call_archive("GET", "/wiki/topics")
 
     if name == "save_full_session":
         import datetime

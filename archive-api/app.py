@@ -11,10 +11,15 @@ try:
 except ImportError:
     import summarizer, embeddings, qdrant_helper, r2_storage
 
+from wiki_agent import knowledge_extractor, wiki_search
+
 DB_URL = os.environ["DB_URL"]
 AUTH = os.environ["ARCHIVE_AUTH_TOKEN"]
 USE_R2 = bool(os.environ.get("R2_ENDPOINT_URL"))
 USE_SEMANTIC = bool(os.environ.get("OPENAI_API_KEY"))
+# WIKI_ENABLE is a boolean-intent flag (not a presence check like USE_R2/
+# USE_SEMANTIC above) so it must parse "false" as false, not just check unset.
+WIKI_ENABLE = os.environ.get("WIKI_ENABLE", "").strip().lower() in ("1", "true", "yes")
 
 app = FastAPI(
     title="Chat Archive API",
@@ -149,6 +154,11 @@ def summarize_session(session_id: str, authorization: str = Header(None)):
                 cur.execute("UPDATE chat_sessions SET embedding_id=%s WHERE id=%s", (session_id, session_id))
         except Exception as e:
             print(f"Embedding/upsert failed (non-fatal): {e}")
+    if WIKI_ENABLE:
+        try:
+            knowledge_extractor.extract_and_store(transcript, session_id=session_id)
+        except Exception as e:
+            print(f"wikiAgent extract_and_store failed (non-fatal): {e}")
     return {"id": session_id, "summary": summary_text}
 
 
@@ -265,6 +275,22 @@ def get_compact(summary_id: str, authorization: str = Header(None)):
         if not r:
             raise HTTPException(404)
         return dict(r)
+
+
+@app.get("/wiki/search")
+def wiki_search_endpoint(q: str, topic: Optional[str] = None, source: Optional[str] = None, limit: int = 5, authorization: str = Header(None)):
+    check(authorization)
+    if not WIKI_ENABLE:
+        raise HTTPException(503, "wiki knowledge layer not enabled")
+    return wiki_search.search_wiki(q, topic=topic, source=source, limit=limit)
+
+
+@app.get("/wiki/topics")
+def wiki_topics_endpoint(authorization: str = Header(None)):
+    check(authorization)
+    if not WIKI_ENABLE:
+        raise HTTPException(503, "wiki knowledge layer not enabled")
+    return wiki_search.list_wiki_topics()
 
 
 @app.get("/health")

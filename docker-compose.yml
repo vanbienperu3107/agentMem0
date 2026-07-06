@@ -39,6 +39,10 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-mem0-transcripts}
+      # Optional: enables wikiAgent knowledge extraction after summarize +
+      # /wiki/search, /wiki/topics (off by default — reuses Qdrant/OpenAI/Anthropic above)
+      WIKI_ENABLE: ${WIKI_ENABLE:-false}
+      WIKI_COLLECTION: ${WIKI_COLLECTION:-wiki_knowledge}
     networks: [memnet]
     depends_on: [postgres, qdrant]
     restart: unless-stopped
